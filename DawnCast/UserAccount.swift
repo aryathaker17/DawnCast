@@ -11,11 +11,15 @@ import CryptoKit
 
 @Model
 final class UserAccount {
-    @Attribute(.unique) var username: String
+    var firstName: String
+    var lastName: String
+    @Attribute(.unique) var email: String
     var passwordHash: String
 
-    init(username: String, passwordHash: String) {
-        self.username = username
+    init(firstName: String, lastName: String, email: String, passwordHash: String) {
+        self.firstName = firstName
+        self.lastName = lastName
+        self.email = email
         self.passwordHash = passwordHash
     }
 

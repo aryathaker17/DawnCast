@@ -83,12 +83,14 @@ struct NewsFeedView: View {
     private func loadNews() async {
         isLoading = articles.isEmpty
         errorMessage = nil
+        print("[NewsFeedView] Loading news with categories: \(categories), sources: \(sources)")
         do {
-            articles = try await NewsService.shared.fetchNews(categories: categories, domains: sources)
+            articles = try await NewsService.fetchNews(categories: categories, domains: sources)
             if articles.isEmpty {
                 errorMessage = "No articles found. Try adjusting your topics."
             }
         } catch {
+            print("[NewsFeedView] Error loading news: \(error)")
             errorMessage = "Failed to load news. Please try again."
         }
         isLoading = false

@@ -67,7 +67,7 @@ struct SourceSelectionView: View {
         }
         .task {
             do {
-                sources = try await NewsService.shared.fetchSources(categories: Array(selectedTopics))
+                sources = try await NewsService.fetchSources(categories: Array(selectedTopics))
                 isLoading = false
             } catch {
                 errorMessage = "Failed to load sources. Please try again."
@@ -85,14 +85,25 @@ struct SourceChip: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.subheadline.weight(.medium))
-                .lineLimit(1)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+        if isSelected {
+            Button(action: action) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+            }
+            .buttonStyle(.glassProminent)
+            .tint(.orange)
+        } else {
+            Button(action: action) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+            }
+            .buttonStyle(.glass)
         }
-        .buttonStyle(isSelected ? .glassProminent : .glass)
-        .tint(isSelected ? .orange : nil)
     }
 }

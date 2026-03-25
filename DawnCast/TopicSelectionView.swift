@@ -58,7 +58,7 @@ struct TopicSelectionView: View {
         }
         .task {
             do {
-                categories = try await NewsService.shared.fetchCategories()
+                categories = try await NewsService.fetchCategories()
                 isLoading = false
             } catch {
                 isLoading = false
@@ -75,14 +75,24 @@ struct TopicChip: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.subheadline.weight(.medium))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+        if isSelected {
+            Button(action: action) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+            }
+            .buttonStyle(.glassProminent)
+            .tint(.orange)
+        } else {
+            Button(action: action) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+            }
+            .buttonStyle(.glass)
         }
-        .buttonStyle(isSelected ? .glassProminent : .glass)
-        .tint(isSelected ? .orange : nil)
     }
 }
 

@@ -9,12 +9,12 @@ import Foundation
 
 // MARK: - API Response Models
 
-struct CategoriesResponse: Codable {
+struct CategoriesResponse: Codable, Sendable {
     let results: [String]?
     let status: String?
 }
 
-struct NewsSource: Codable, Identifiable {
+struct NewsSource: Codable, Sendable, Identifiable {
     let id: String?
     let name: String?
     let url: String?
@@ -23,12 +23,12 @@ struct NewsSource: Codable, Identifiable {
     let country: [String]?
 }
 
-struct SourcesResponse: Codable {
+struct SourcesResponse: Codable, Sendable {
     let results: [NewsSource]?
     let status: String?
 }
 
-struct NewsArticle: Codable, Identifiable {
+struct NewsArticle: Codable, Sendable, Identifiable {
     let articleId: String?
     let title: String?
     let link: String?
@@ -54,7 +54,7 @@ struct NewsArticle: Codable, Identifiable {
     }
 }
 
-struct NewsResponse: Codable {
+struct NewsResponse: Codable, Sendable {
     let results: [NewsArticle]?
     let status: String?
     let totalResults: Int?
@@ -67,14 +67,12 @@ struct NewsResponse: Codable {
 
 // MARK: - News Service
 
-actor NewsService {
-    static let shared = NewsService()
-
-    private let apiKey = "pub_cc9ab0c0baa842ae8ffeab2ef2609a52"
-    private let baseURL = "https://newsdata.io/api/1"
+enum NewsService {
+    private static let apiKey = "pub_cc9ab0c0baa842ae8ffeab2ef2609a52"
+    private static let baseURL = "https://newsdata.io/api/1"
 
     /// Fetches available news categories.
-    func fetchCategories() async throws -> [String] {
+    static func fetchCategories() async throws -> [String] {
         // NewsData.IO has 17 known categories — use them directly
         // to avoid spending API credits on the categories endpoint.
         return [
@@ -86,7 +84,7 @@ actor NewsService {
     }
 
     /// Fetches news sources filtered by selected categories.
-    func fetchSources(categories: [String]) async throws -> [NewsSource] {
+    static func fetchSources(categories: [String]) async throws -> [NewsSource] {
         var components = URLComponents(string: "\(baseURL)/sources")!
         var queryItems = [URLQueryItem(name: "apikey", value: apiKey)]
 
@@ -94,6 +92,7 @@ actor NewsService {
             queryItems.append(URLQueryItem(name: "category", value: categories.joined(separator: ",")))
         }
         queryItems.append(URLQueryItem(name: "language", value: "en"))
+        queryItems.append(URLQueryItem(name: "prioritydomain", value: "medium"))
 
         components.queryItems = queryItems
 
@@ -103,7 +102,7 @@ actor NewsService {
     }
 
     /// Fetches latest news articles based on categories and source domains.
-    func fetchNews(categories: [String], domains: [String]) async throws -> [NewsArticle] {
+    static func fetchNews(categories: [String], domains: [String]) async throws -> [NewsArticle] {
         var components = URLComponents(string: "\(baseURL)/latest")!
         var queryItems = [URLQueryItem(name: "apikey", value: apiKey)]
 
@@ -114,11 +113,17 @@ actor NewsService {
             queryItems.append(URLQueryItem(name: "domain", value: domains.joined(separator: ",")))
         }
         queryItems.append(URLQueryItem(name: "language", value: "en"))
+        queryItems.append(URLQueryItem(name: "prioritydomain", value: "medium"))
 
         components.queryItems = queryItems
 
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
+        let url = components.url!
+        print("[NewsService] Fetching news from: \(url)")
+        let (data, _) = try await URLSession.shared.data(from: url)
+        let rawJSON = String(data: data, encoding: .utf8) ?? "nil"
+        print("[NewsService] News response: \(rawJSON.prefix(500))")
         let response = try JSONDecoder().decode(NewsResponse.self, from: data)
+        print("[NewsService] Parsed \(response.results?.count ?? 0) articles")
         return response.results ?? []
     }
 }

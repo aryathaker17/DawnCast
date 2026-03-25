@@ -20,55 +20,78 @@ final class AccountManager {
     }
 
     enum AuthError: LocalizedError {
-        case usernameTaken
+        case emailAlreadyExists
         case userNotFound
         case wrongPassword
         case passwordTooShort
         case passwordsDoNotMatch
+        case invalidEmail
 
         var errorDescription: String? {
             switch self {
-            case .usernameTaken: "That username is already taken."
-            case .userNotFound: "No account found with that username."
+            case .emailAlreadyExists: "An account with that email already exists."
+            case .userNotFound: "No account found with that email."
             case .wrongPassword: "Incorrect password."
             case .passwordTooShort: "Password must be at least 6 characters."
             case .passwordsDoNotMatch: "Passwords do not match."
+            case .invalidEmail: "Please enter a valid email address."
             }
         }
     }
 
     /// Creates a new account and logs the user in.
-    func signUp(username: String, password: String, confirmPassword: String) throws {
+    func signUp(firstName: String, lastName: String, email: String, password: String, confirmPassword: String) throws {
+        let trimmedEmail = email.lowercased().trimmingCharacters(in: .whitespaces)
+        guard trimmedEmail.contains("@") && trimmedEmail.contains(".") else { throw AuthError.invalidEmail }
         guard password.count >= 6 else { throw AuthError.passwordTooShort }
         guard password == confirmPassword else { throw AuthError.passwordsDoNotMatch }
 
-        // Check if username already exists
-        let trimmedUsername = username.lowercased().trimmingCharacters(in: .whitespaces)
-        let descriptor = FetchDescriptor<UserAccount>(
-            predicate: #Predicate { $0.username == trimmedUsername }
-        )
-        let existing = try modelContext.fetch(descriptor)
-        guard existing.isEmpty else { throw AuthError.usernameTaken }
+        // Check if an account with this email already exists
+        let allAccounts = try modelContext.fetch(FetchDescriptor<UserAccount>())
+        print("[SignUp] Existing accounts in DB: \(allAccounts.count)")
+        for acct in allAccounts {
+            print("[SignUp]   - email: '\(acct.email)'")
+        }
+        if allAccounts.contains(where: { $0.email == trimmedEmail }) {
+            throw AuthError.emailAlreadyExists
+        }
 
         let hash = UserAccount.hash(password: password)
-        let account = UserAccount(username: trimmedUsername, passwordHash: hash)
+        let account = UserAccount(
+            firstName: firstName.trimmingCharacters(in: .whitespaces),
+            lastName: lastName.trimmingCharacters(in: .whitespaces),
+            email: trimmedEmail,
+            passwordHash: hash
+        )
         modelContext.insert(account)
         try modelContext.save()
+        print("[SignUp] Account saved for email: '\(trimmedEmail)'")
+
+        // Verify it was saved
+        let verifyAccounts = try modelContext.fetch(FetchDescriptor<UserAccount>())
+        print("[SignUp] Accounts after save: \(verifyAccounts.count)")
+
         currentUser = account
     }
 
     /// Validates credentials and logs the user in.
-    func login(username: String, password: String) throws {
-        let trimmedUsername = username.lowercased().trimmingCharacters(in: .whitespaces)
-        let descriptor = FetchDescriptor<UserAccount>(
-            predicate: #Predicate { $0.username == trimmedUsername }
-        )
-        let results = try modelContext.fetch(descriptor)
-        guard let account = results.first else { throw AuthError.userNotFound }
+    func login(email: String, password: String) throws {
+        let trimmedEmail = email.lowercased().trimmingCharacters(in: .whitespaces)
+        print("[Login] Attempting login with email: '\(trimmedEmail)'")
+        let allAccounts = try modelContext.fetch(FetchDescriptor<UserAccount>())
+        print("[Login] Accounts in DB: \(allAccounts.count)")
+        for acct in allAccounts {
+            print("[Login]   - email: '\(acct.email)'")
+        }
+        guard let account = allAccounts.first(where: { $0.email == trimmedEmail }) else {
+            print("[Login] No match found for '\(trimmedEmail)'")
+            throw AuthError.userNotFound
+        }
 
         let hash = UserAccount.hash(password: password)
         guard account.passwordHash == hash else { throw AuthError.wrongPassword }
 
+        print("[Login] Login successful for '\(trimmedEmail)'")
         currentUser = account
     }
 }
