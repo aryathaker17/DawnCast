@@ -15,7 +15,6 @@ struct NewsFeedView: View {
     @State private var articles: [NewsArticle] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
-    @Environment(\.openURL) private var openURL
 
     var body: some View {
         ZStack {
@@ -44,12 +43,10 @@ struct NewsFeedView: View {
                 ScrollView {
                     LazyVStack(spacing: 16) {
                         ForEach(articles) { article in
-                            ArticleCard(article: article) {
-                                if let urlString = article.link,
-                                   let url = URL(string: urlString) {
-                                    openURL(url)
-                                }
+                            NavigationLink(destination: ArticleDetailView(article: article)) {
+                                ArticleCard(article: article)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -85,13 +82,13 @@ struct NewsFeedView: View {
         errorMessage = nil
         print("[NewsFeedView] Loading news with categories: \(categories), sources: \(sources)")
         do {
-            articles = try await NewsService.fetchNews(categories: categories, domains: sources)
+            articles = try await NewsService.fetchNews(categories: categories, sourceIds: sources)
             if articles.isEmpty {
                 errorMessage = "No articles found. Try adjusting your topics."
             }
         } catch {
             print("[NewsFeedView] Error loading news: \(error)")
-            errorMessage = "Failed to load news. Please try again."
+            errorMessage = "Failed to load news: \(error.localizedDescription)"
         }
         isLoading = false
     }
@@ -101,68 +98,64 @@ struct NewsFeedView: View {
 
 struct ArticleCard: View {
     let article: NewsArticle
-    let onTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 12) {
-                // Image
-                if let imageUrl = article.imageUrl, let url = URL(string: imageUrl) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(height: 180)
-                                .clipped()
-                                .clipShape(.rect(cornerRadius: 12))
-                        case .failure:
-                            EmptyView()
-                        default:
-                            Rectangle()
-                                .fill(.white.opacity(0.05))
-                                .frame(height: 180)
-                                .clipShape(.rect(cornerRadius: 12))
-                        }
+        VStack(alignment: .leading, spacing: 12) {
+            // Image
+            if let imageUrl = article.imageUrl, let url = URL(string: imageUrl) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: 180)
+                            .clipped()
+                            .clipShape(.rect(cornerRadius: 12))
+                    case .failure:
+                        EmptyView()
+                    default:
+                        Rectangle()
+                            .fill(.white.opacity(0.05))
+                            .frame(height: 180)
+                            .clipShape(.rect(cornerRadius: 12))
                     }
-                }
-
-                // Title
-                if let title = article.title {
-                    Text(title)
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(3)
-                }
-
-                // Source and date row
-                HStack {
-                    if let source = article.sourceName {
-                        Text(source)
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
-                    Spacer()
-                    if let date = article.pubDate {
-                        Text(date)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.5))
-                    }
-                }
-
-                // Description
-                if let description = article.description {
-                    Text(description)
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.7))
-                        .lineLimit(2)
                 }
             }
-            .padding(16)
+
+            // Title
+            if let title = article.title {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(3)
+            }
+
+            // Source and date row
+            HStack {
+                if let source = article.sourceName {
+                    Text(source)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+                Spacer()
+                if let date = article.pubDate {
+                    Text(date)
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+            }
+
+            // Description
+            if let description = article.description {
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .lineLimit(2)
+            }
         }
-        .buttonStyle(.plain)
+        .padding(16)
         .glassEffect(in: .rect(cornerRadius: 20))
     }
 }

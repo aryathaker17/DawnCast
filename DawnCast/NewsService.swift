@@ -65,11 +65,28 @@ struct NewsResponse: Codable, Sendable {
     }
 }
 
+struct APIErrorResponse: Codable, Sendable {
+    let status: String?
+    let results: APIErrorDetail?
+}
+
+struct APIErrorDetail: Codable, Sendable {
+    let message: String?
+    let code: String?
+}
+
 // MARK: - News Service
 
 enum NewsService {
     private static let apiKey = "pub_cc9ab0c0baa842ae8ffeab2ef2609a52"
     private static let baseURL = "https://newsdata.io/api/1"
+
+    private static let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 120
+        config.timeoutIntervalForResource = 120
+        return URLSession(configuration: config)
+    }()
 
     /// Fetches available news categories.
     static func fetchCategories() async throws -> [String] {
@@ -83,47 +100,88 @@ enum NewsService {
         ]
     }
 
-    /// Fetches news sources filtered by selected categories.
+    /// Fetches top news sources from the API filtered by selected categories.
     static func fetchSources(categories: [String]) async throws -> [NewsSource] {
         var components = URLComponents(string: "\(baseURL)/sources")!
         var queryItems = [URLQueryItem(name: "apikey", value: apiKey)]
 
         if !categories.isEmpty {
-            queryItems.append(URLQueryItem(name: "category", value: categories.joined(separator: ",")))
+            let limitedCategories = Array(categories.prefix(5))
+            queryItems.append(URLQueryItem(name: "category", value: limitedCategories.joined(separator: ",")))
         }
         queryItems.append(URLQueryItem(name: "language", value: "en"))
-        queryItems.append(URLQueryItem(name: "prioritydomain", value: "medium"))
+        queryItems.append(URLQueryItem(name: "prioritydomain", value: "top"))
 
         components.queryItems = queryItems
 
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
-        let response = try JSONDecoder().decode(SourcesResponse.self, from: data)
-        return response.results ?? []
+        let url = components.url!
+        print("[NewsService] Fetching sources from: \(url)")
+        let (data, _) = try await session.data(from: url)
+        let rawJSON = String(data: data, encoding: .utf8) ?? "nil"
+        print("[NewsService] Sources response: \(rawJSON.prefix(500))")
+
+        if let response = try? JSONDecoder().decode(SourcesResponse.self, from: data),
+           let sources = response.results, !sources.isEmpty {
+            print("[NewsService] Parsed \(sources.count) sources")
+            return sources
+        }
+
+        if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data),
+           let errorDetail = errorResponse.results {
+            let msg = errorDetail.message ?? "Unknown API error"
+            print("[NewsService] Sources API error: \(msg)")
+            throw NSError(domain: "NewsService", code: 0, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+
+        return []
     }
 
-    /// Fetches latest news articles based on categories and source domains.
-    static func fetchNews(categories: [String], domains: [String]) async throws -> [NewsArticle] {
+    /// Fetches latest news articles based on categories and selected source IDs.
+    static func fetchNews(categories: [String], sourceIds: [String] = []) async throws -> [NewsArticle] {
         var components = URLComponents(string: "\(baseURL)/latest")!
         var queryItems = [URLQueryItem(name: "apikey", value: apiKey)]
 
         if !categories.isEmpty {
-            queryItems.append(URLQueryItem(name: "category", value: categories.joined(separator: ",")))
+            let limitedCategories = Array(categories.prefix(5))
+            queryItems.append(URLQueryItem(name: "category", value: limitedCategories.joined(separator: ",")))
         }
-        if !domains.isEmpty {
-            queryItems.append(URLQueryItem(name: "domain", value: domains.joined(separator: ",")))
+        if !sourceIds.isEmpty {
+            // Free tier allows up to 5 domains per query
+            let limitedSources = Array(sourceIds.prefix(5))
+            queryItems.append(URLQueryItem(name: "domain", value: limitedSources.joined(separator: ",")))
         }
         queryItems.append(URLQueryItem(name: "language", value: "en"))
-        queryItems.append(URLQueryItem(name: "prioritydomain", value: "medium"))
+        // Only use prioritydomain when no specific sources are selected
+        if sourceIds.isEmpty {
+            queryItems.append(URLQueryItem(name: "prioritydomain", value: "top"))
+        }
 
         components.queryItems = queryItems
 
         let url = components.url!
         print("[NewsService] Fetching news from: \(url)")
-        let (data, _) = try await URLSession.shared.data(from: url)
+        let (data, httpResponse) = try await session.data(from: url)
         let rawJSON = String(data: data, encoding: .utf8) ?? "nil"
-        print("[NewsService] News response: \(rawJSON.prefix(500))")
-        let response = try JSONDecoder().decode(NewsResponse.self, from: data)
-        print("[NewsService] Parsed \(response.results?.count ?? 0) articles")
-        return response.results ?? []
+        print("[NewsService] HTTP status: \((httpResponse as? HTTPURLResponse)?.statusCode ?? -1)")
+        print("[NewsService] News response: \(rawJSON.prefix(1000))")
+
+        // Try decoding a successful response first
+        if let decoded = try? JSONDecoder().decode(NewsResponse.self, from: data),
+           let articles = decoded.results, !articles.isEmpty {
+            print("[NewsService] Parsed \(articles.count) articles")
+            return articles
+        }
+
+        // If that failed or returned empty results, check for an API error
+        if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data),
+           let errorDetail = errorResponse.results {
+            let msg = errorDetail.message ?? "Unknown API error"
+            print("[NewsService] API error: \(msg)")
+            throw NSError(domain: "NewsService", code: 0, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+
+        // Fallback: return empty
+        print("[NewsService] No articles and no error parsed from response")
+        return []
     }
 }

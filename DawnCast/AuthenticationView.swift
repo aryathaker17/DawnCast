@@ -343,6 +343,7 @@ struct PostAuthFlow: View {
                 }
             } else if let prefs = userPrefs, prefs.hasCompletedOnboarding {
                 // User already onboarded — go straight to feed
+                let _ = print("[PostAuthFlow] Rendering NewsFeedView with \(prefs.selectedTopics.count) topics, \(prefs.selectedSources.count) sources")
                 NavigationStack {
                     NewsFeedView(
                         isAuthenticated: $isAuthenticated,
@@ -351,6 +352,7 @@ struct PostAuthFlow: View {
                     )
                 }
             } else {
+                let _ = print("[PostAuthFlow] Rendering OnboardingFlow (userPrefs is \(userPrefs == nil ? "nil" : "present, onboarded=\(userPrefs!.hasCompletedOnboarding)"))")
                 // Show onboarding
                 OnboardingFlow(
                     isAuthenticated: $isAuthenticated,
@@ -365,6 +367,7 @@ struct PostAuthFlow: View {
         }
         .onChange(of: onboardingComplete) {
             if onboardingComplete {
+                print("[PostAuthFlow] onboardingComplete changed to true, reloading prefs")
                 loadPreferences()
             }
         }
@@ -372,8 +375,17 @@ struct PostAuthFlow: View {
 
     private func loadPreferences() {
         let email = loggedInEmail
+        print("[PostAuthFlow] Loading preferences for email: '\(email)'")
         let allPrefs = (try? modelContext.fetch(FetchDescriptor<UserPreferences>())) ?? []
+        print("[PostAuthFlow] Found \(allPrefs.count) total preferences records")
+        for p in allPrefs {
+            print("[PostAuthFlow]   - email: '\(p.userEmail)', onboarded: \(p.hasCompletedOnboarding), topics: \(p.selectedTopics.count), sources: \(p.selectedSources.count)")
+        }
         userPrefs = allPrefs.first(where: { $0.userEmail == email })
+        print("[PostAuthFlow] Matched prefs: \(userPrefs != nil), isLoaded will be true")
+        if let prefs = userPrefs {
+            print("[PostAuthFlow] Will show feed with topics: \(prefs.selectedTopics), sources: \(prefs.selectedSources)")
+        }
         isLoaded = true
     }
 }
@@ -497,6 +509,7 @@ struct OnboardingFlow: View {
     }
 
     private func savePreferencesAndFinish() {
+        print("[Onboarding] Saving preferences - topics: \(selectedTopics), sources: \(selectedSources)")
         let prefs = UserPreferences(
             userEmail: loggedInEmail,
             selectedTopics: Array(selectedTopics),

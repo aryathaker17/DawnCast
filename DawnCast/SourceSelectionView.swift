@@ -38,23 +38,33 @@ struct SourceSelectionView: View {
                             .tint(.white)
                             .padding(.top, 40)
                     } else if let errorMessage {
-                        Text(errorMessage)
-                            .font(.subheadline)
-                            .foregroundStyle(.red)
-                            .padding()
+                        VStack(spacing: 12) {
+                            Text(errorMessage)
+                                .font(.subheadline)
+                                .foregroundStyle(.white.opacity(0.7))
+                                .multilineTextAlignment(.center)
+                            Button("Retry") {
+                                Task { await loadSources() }
+                            }
+                            .buttonStyle(.glass)
+                        }
+                        .padding()
                     } else {
                         // Source chips in a flowing layout
                         FlowLayout(spacing: 12) {
                             ForEach(sources) { source in
                                 let sourceId = source.id ?? ""
-                                SourceChip(
-                                    title: source.name ?? sourceId,
-                                    isSelected: selectedSources.contains(sourceId)
-                                ) {
-                                    if selectedSources.contains(sourceId) {
-                                        selectedSources.remove(sourceId)
-                                    } else {
-                                        selectedSources.insert(sourceId)
+                                let displayName = source.name ?? sourceId
+                                if !sourceId.isEmpty {
+                                    SourceChip(
+                                        title: displayName,
+                                        isSelected: selectedSources.contains(sourceId)
+                                    ) {
+                                        if selectedSources.contains(sourceId) {
+                                            selectedSources.remove(sourceId)
+                                        } else {
+                                            selectedSources.insert(sourceId)
+                                        }
                                     }
                                 }
                             }
@@ -66,14 +76,22 @@ struct SourceSelectionView: View {
             }
         }
         .task {
-            do {
-                sources = try await NewsService.fetchSources(categories: Array(selectedTopics))
-                isLoading = false
-            } catch {
-                errorMessage = "Failed to load sources. Please try again."
-                isLoading = false
-            }
+            await loadSources()
         }
+    }
+
+    private func loadSources() async {
+        isLoading = true
+        errorMessage = nil
+        do {
+            sources = try await NewsService.fetchSources(categories: Array(selectedTopics))
+            if sources.isEmpty {
+                errorMessage = "No sources found for your topics."
+            }
+        } catch {
+            errorMessage = "Failed to load sources: \(error.localizedDescription)"
+        }
+        isLoading = false
     }
 }
 
