@@ -14,6 +14,10 @@ struct SourceSelectionView: View {
     @State private var sources: [NewsSource] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var showSearch = false
+    @State private var showLimitMessage = false
+
+    private let maxSources = 4
 
     var body: some View {
         ZStack {
@@ -22,16 +26,38 @@ struct SourceSelectionView: View {
 
             ScrollView {
                 VStack(spacing: 32) {
-                    // Header
+                    // Header with search button
                     VStack(spacing: 8) {
-                        Text("Choose your sources")
-                            .font(.title2.bold())
-                            .foregroundStyle(.white)
+                        HStack {
+                            Spacer()
+                            Text("Choose your sources")
+                                .font(.title2.bold())
+                                .foregroundStyle(.white)
+                            Spacer()
+                            Button {
+                                showSearch = true
+                            } label: {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.title3)
+                                    .foregroundStyle(.white.opacity(0.7))
+                            }
+                        }
                         Text("Select where you'd like to get your news")
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.7))
                     }
                     .padding(.top, 24)
+
+                    if showLimitMessage {
+                        Text("You can only select up to 4 sources.")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .background(.red.opacity(0.8), in: .rect(cornerRadius: 10))
+                            .padding(.horizontal, 24)
+                    }
 
                     if isLoading {
                         ProgressView()
@@ -62,6 +88,9 @@ struct SourceSelectionView: View {
                                     ) {
                                         if selectedSources.contains(sourceId) {
                                             selectedSources.remove(sourceId)
+                                            showLimitMessage = false
+                                        } else if selectedSources.count >= maxSources {
+                                            showLimitMessage = true
                                         } else {
                                             selectedSources.insert(sourceId)
                                         }
@@ -78,6 +107,14 @@ struct SourceSelectionView: View {
         .task {
             await loadSources()
         }
+        .sheet(isPresented: $showSearch) {
+            SourceSearchSheet(
+                sources: sources,
+                selectedSources: $selectedSources,
+                showLimitMessage: $showLimitMessage,
+                maxSources: maxSources
+            )
+        }
     }
 
     private func loadSources() async {
@@ -92,6 +129,96 @@ struct SourceSelectionView: View {
             errorMessage = "Failed to load sources: \(error.localizedDescription)"
         }
         isLoading = false
+    }
+}
+
+// MARK: - Source Search Sheet
+
+struct SourceSearchSheet: View {
+    let sources: [NewsSource]
+    @Binding var selectedSources: Set<String>
+    @Binding var showLimitMessage: Bool
+    let maxSources: Int
+    @State private var searchText = ""
+    @Environment(\.dismiss) private var dismiss
+
+    private var filteredSources: [NewsSource] {
+        if searchText.isEmpty {
+            return sources
+        }
+        let query = searchText.lowercased()
+        return sources.filter { source in
+            let name = (source.name ?? "").lowercased()
+            let id = (source.id ?? "").lowercased()
+            return name.contains(query) || id.contains(query)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(red: 0.02, green: 0.02, blue: 0.04)
+                    .ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    if showLimitMessage {
+                        Text("You can only select up to 4 sources.")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .background(.red.opacity(0.8), in: .rect(cornerRadius: 10))
+                            .padding(.horizontal, 24)
+                            .padding(.top, 8)
+                    }
+
+                    List {
+                        ForEach(filteredSources) { source in
+                        let sourceId = source.id ?? ""
+                        let displayName = source.name ?? sourceId
+                        if !sourceId.isEmpty {
+                            Button {
+                                if selectedSources.contains(sourceId) {
+                                    selectedSources.remove(sourceId)
+                                    showLimitMessage = false
+                                } else if selectedSources.count >= maxSources {
+                                    showLimitMessage = true
+                                } else {
+                                    selectedSources.insert(sourceId)
+                                }
+                            } label: {
+                                HStack {
+                                    Text(displayName)
+                                        .foregroundStyle(.white)
+                                    Spacer()
+                                    if selectedSources.contains(sourceId) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(.orange)
+                                    }
+                                }
+                            }
+                            .listRowBackground(Color.white.opacity(0.05))
+                        }
+                    }
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                }
+            }
+            .navigationTitle("Search Sources")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .searchable(text: $searchText, prompt: "Search by name...")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .foregroundStyle(.orange)
+                }
+            }
+        }
     }
 }
 

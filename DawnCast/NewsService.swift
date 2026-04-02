@@ -39,6 +39,7 @@ struct NewsArticle: Codable, Sendable, Identifiable {
     let pubDate: String?
     let category: [String]?
     let description: String?
+    let content: String?
 
     var id: String { articleId ?? UUID().uuidString }
 
@@ -50,7 +51,7 @@ struct NewsArticle: Codable, Sendable, Identifiable {
         case sourceUrl = "source_url"
         case imageUrl = "image_url"
         case pubDate = "pubDate"
-        case category, description
+        case category, description, content
     }
 }
 

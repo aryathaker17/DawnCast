@@ -342,15 +342,14 @@ struct PostAuthFlow: View {
                     ProgressView().tint(.white)
                 }
             } else if let prefs = userPrefs, prefs.hasCompletedOnboarding {
-                // User already onboarded — go straight to feed
-                let _ = print("[PostAuthFlow] Rendering NewsFeedView with \(prefs.selectedTopics.count) topics, \(prefs.selectedSources.count) sources")
-                NavigationStack {
-                    NewsFeedView(
-                        isAuthenticated: $isAuthenticated,
-                        categories: prefs.selectedTopics,
-                        sources: prefs.selectedSources
-                    )
-                }
+                // User already onboarded — show main tab interface
+                let _ = print("[PostAuthFlow] Rendering MainTabView with \(prefs.selectedTopics.count) topics, \(prefs.selectedSources.count) sources")
+                MainTabView(
+                    isAuthenticated: $isAuthenticated,
+                    categories: prefs.selectedTopics,
+                    sources: prefs.selectedSources,
+                    loggedInEmail: loggedInEmail
+                )
             } else {
                 let _ = print("[PostAuthFlow] Rendering OnboardingFlow (userPrefs is \(userPrefs == nil ? "nil" : "present, onboarded=\(userPrefs!.hasCompletedOnboarding)"))")
                 // Show onboarding

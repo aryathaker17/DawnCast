@@ -60,17 +60,6 @@ struct NewsFeedView: View {
         }
         .navigationTitle("DawnCast")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Log Out") {
-                    withAnimation {
-                        isAuthenticated = false
-                    }
-                }
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.7))
-            }
-        }
         .toolbarColorScheme(.dark, for: .navigationBar)
         .task {
             await loadNews()
