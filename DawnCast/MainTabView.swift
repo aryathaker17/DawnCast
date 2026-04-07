@@ -23,7 +23,11 @@ struct MainTabView: View {
         TabView(selection: $selectedTab) {
             Tab("Summary", systemImage: "doc.text", value: .summary) {
                 NavigationStack {
-                    SummaryView()
+                    SummaryView(
+                        categories: categories,
+                        sources: sources,
+                        selectedTab: $selectedTab
+                    )
                 }
             }
 
