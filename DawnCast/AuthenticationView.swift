@@ -348,6 +348,7 @@ struct PostAuthFlow: View {
                     isAuthenticated: $isAuthenticated,
                     categories: prefs.selectedTopics,
                     sources: prefs.selectedSources,
+                    country: prefs.selectedCountry,
                     loggedInEmail: loggedInEmail
                 )
             } else {
@@ -398,6 +399,7 @@ struct OnboardingFlow: View {
     @Binding var onboardingComplete: Bool
 
     @State private var currentStep = 0
+    @State private var selectedCountry: String = ""
     @State private var selectedTopics: Set<String> = []
     @State private var selectedSources: Set<String> = []
 
@@ -412,11 +414,14 @@ struct OnboardingFlow: View {
                     // Welcome screen
                     welcomeView
                 case 1:
+                    // Country selection
+                    CountrySelectionView(selectedCountry: $selectedCountry)
+                case 2:
                     // Topic selection
                     TopicSelectionView(selectedTopics: $selectedTopics)
-                case 2:
+                case 3:
                     // Source selection
-                    SourceSelectionView(selectedTopics: selectedTopics, selectedSources: $selectedSources)
+                    SourceSelectionView(selectedTopics: selectedTopics, selectedSources: $selectedSources, selectedCountry: selectedCountry)
                 default:
                     EmptyView()
                 }
@@ -463,7 +468,7 @@ struct OnboardingFlow: View {
         HStack {
             // Step indicator
             HStack(spacing: 6) {
-                ForEach(0..<3) { step in
+                ForEach(0..<4) { step in
                     Circle()
                         .fill(step == currentStep ? Color.orange : Color.white.opacity(0.3))
                         .frame(width: 8, height: 8)
@@ -476,7 +481,7 @@ struct OnboardingFlow: View {
             Button {
                 advanceStep()
             } label: {
-                Text(currentStep == 2 ? "Done" : "Next")
+                Text(currentStep == 3 ? "Done" : "Next")
                     .font(.headline)
                     .padding(.horizontal, 32)
                     .padding(.vertical, 12)
@@ -491,14 +496,15 @@ struct OnboardingFlow: View {
 
     private var isNextDisabled: Bool {
         switch currentStep {
-        case 1: return selectedTopics.isEmpty
-        case 2: return selectedSources.isEmpty
+        case 1: return selectedCountry.isEmpty
+        case 2: return selectedTopics.isEmpty
+        case 3: return selectedSources.isEmpty
         default: return false
         }
     }
 
     private func advanceStep() {
-        if currentStep < 2 {
+        if currentStep < 3 {
             withAnimation {
                 currentStep += 1
             }
@@ -508,9 +514,10 @@ struct OnboardingFlow: View {
     }
 
     private func savePreferencesAndFinish() {
-        print("[Onboarding] Saving preferences - topics: \(selectedTopics), sources: \(selectedSources)")
+        print("[Onboarding] Saving preferences - country: \(selectedCountry), topics: \(selectedTopics), sources: \(selectedSources)")
         let prefs = UserPreferences(
             userEmail: loggedInEmail,
+            selectedCountry: selectedCountry,
             selectedTopics: Array(selectedTopics),
             selectedSources: Array(selectedSources),
             hasCompletedOnboarding: true

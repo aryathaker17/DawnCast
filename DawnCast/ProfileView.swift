@@ -11,15 +11,18 @@ struct ProfileView: View {
     let loggedInEmail: String
     @Binding var categories: [String]
     @Binding var sources: [String]
+    @Binding var country: String
 
     @Environment(\.modelContext) private var modelContext
 
     // Local editing state
+    @State private var editingCountry: String = ""
     @State private var editingTopics: Set<String> = []
     @State private var editingSources: Set<String> = []
     @State private var originalTopics: Set<String> = []
 
     // Sheet presentation
+    @State private var showCountryEditor = false
     @State private var showTopicEditor = false
     @State private var showSourceEditor = false
 
@@ -41,6 +44,13 @@ struct ProfileView: View {
                     Text(loggedInEmail)
                         .font(.headline)
                         .foregroundStyle(.white)
+
+                    // Country section
+                    preferenceSectionView(
+                        title: "Your Country",
+                        items: [countryDisplayName(for: country)],
+                        editAction: { startEditingCountry() }
+                    )
 
                     // Topics section
                     preferenceSectionView(
@@ -78,9 +88,21 @@ struct ProfileView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .onAppear {
+            editingCountry = country
             editingTopics = Set(categories)
             editingSources = Set(sources)
             originalTopics = Set(categories)
+        }
+        .sheet(isPresented: $showCountryEditor, onDismiss: onCountryEditorDismiss) {
+            NavigationStack {
+                CountrySelectionView(selectedCountry: $editingCountry)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") { showCountryEditor = false }
+                                .foregroundStyle(.orange)
+                        }
+                    }
+            }
         }
         .sheet(isPresented: $showTopicEditor, onDismiss: onTopicEditorDismiss) {
             NavigationStack {
@@ -97,7 +119,8 @@ struct ProfileView: View {
             NavigationStack {
                 SourceSelectionView(
                     selectedTopics: editingTopics,
-                    selectedSources: $editingSources
+                    selectedSources: $editingSources,
+                    selectedCountry: country
                 )
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -146,6 +169,32 @@ struct ProfileView: View {
 
     // MARK: - Editing Actions
 
+    private func startEditingCountry() {
+        editingCountry = country
+        showCountryEditor = true
+    }
+
+    private func onCountryEditorDismiss() {
+        if editingCountry != country {
+            country = editingCountry
+            savePreferences()
+        }
+    }
+
+    private func countryDisplayName(for code: String) -> String {
+        let map: [String: String] = [
+            "us": "United States", "gb": "United Kingdom", "ca": "Canada",
+            "au": "Australia", "in": "India", "ie": "Ireland",
+            "nz": "New Zealand", "sg": "Singapore", "za": "South Africa",
+            "ng": "Nigeria", "ke": "Kenya", "ph": "Philippines",
+            "de": "Germany", "fr": "France", "jp": "Japan",
+            "br": "Brazil", "mx": "Mexico", "it": "Italy",
+            "es": "Spain", "kr": "South Korea", "ae": "UAE",
+            "sa": "Saudi Arabia",
+        ]
+        return map[code] ?? code.uppercased()
+    }
+
     private func startEditingTopics() {
         editingTopics = Set(categories)
         originalTopics = Set(categories)
@@ -185,11 +234,13 @@ struct ProfileView: View {
         let email = loggedInEmail
         let allPrefs = (try? modelContext.fetch(FetchDescriptor<UserPreferences>())) ?? []
         if let existing = allPrefs.first(where: { $0.userEmail == email }) {
+            existing.selectedCountry = country
             existing.selectedTopics = Array(editingTopics)
             existing.selectedSources = Array(editingSources)
         } else {
             let prefs = UserPreferences(
                 userEmail: email,
+                selectedCountry: country,
                 selectedTopics: Array(editingTopics),
                 selectedSources: Array(editingSources),
                 hasCompletedOnboarding: true

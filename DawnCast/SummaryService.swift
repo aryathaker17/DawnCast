@@ -45,7 +45,12 @@ struct CategorySummary: Identifiable, Sendable {
 // MARK: - Summary Service
 
 enum SummaryService {
-    private static let apiKey = Bundle.main.object(forInfoDictionaryKey: "ANTHROPIC_API_KEY") as? String ?? ""
+    private static let apiKey: String = {
+        let raw = Bundle.main.object(forInfoDictionaryKey: "ANTHROPIC_API_KEY") as? String ?? ""
+        // xcconfig values can get duplicated when set at multiple configuration levels;
+        // extract just the first non-empty line.
+        return raw.components(separatedBy: .newlines).first(where: { !$0.isEmpty })?.trimmingCharacters(in: .whitespaces) ?? raw
+    }()
     private static let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
 
     private static let session: URLSession = {

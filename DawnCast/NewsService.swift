@@ -21,6 +21,15 @@ struct NewsSource: Codable, Sendable, Identifiable {
     let category: [String]?
     let language: [String]?
     let country: [String]?
+
+    /// Extracts the domain URL (e.g. "bbc.com" from "https://www.bbc.com") for use with the NewsData.io domainurl parameter.
+    var domainName: String {
+        guard let urlString = url, let parsed = URL(string: urlString), let host = parsed.host() else {
+            return id ?? ""
+        }
+        // Remove "www." prefix to get the registrable domain (e.g. "bbc.com")
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+    }
 }
 
 struct SourcesResponse: Codable, Sendable {
@@ -79,7 +88,10 @@ struct APIErrorDetail: Codable, Sendable {
 // MARK: - News Service
 
 enum NewsService {
-    private static let apiKey = "pub_cc9ab0c0baa842ae8ffeab2ef2609a52"
+    private static let apiKey: String = {
+        let raw = Bundle.main.object(forInfoDictionaryKey: "NEWSDATA_API_KEY") as? String ?? ""
+        return raw.components(separatedBy: .newlines).first(where: { !$0.isEmpty })?.trimmingCharacters(in: .whitespaces) ?? raw
+    }()
     private static let baseURL = "https://newsdata.io/api/1"
 
     private static let session: URLSession = {
@@ -102,7 +114,7 @@ enum NewsService {
     }
 
     /// Fetches top news sources from the API filtered by selected categories.
-    static func fetchSources(categories: [String]) async throws -> [NewsSource] {
+    static func fetchSources(categories: [String], country: String = "") async throws -> [NewsSource] {
         var components = URLComponents(string: "\(baseURL)/sources")!
         var queryItems = [URLQueryItem(name: "apikey", value: apiKey)]
 
@@ -111,6 +123,9 @@ enum NewsService {
             queryItems.append(URLQueryItem(name: "category", value: limitedCategories.joined(separator: ",")))
         }
         queryItems.append(URLQueryItem(name: "language", value: "en"))
+        if !country.isEmpty {
+            queryItems.append(URLQueryItem(name: "country", value: country))
+        }
         queryItems.append(URLQueryItem(name: "prioritydomain", value: "top"))
 
         components.queryItems = queryItems
@@ -138,7 +153,7 @@ enum NewsService {
     }
 
     /// Fetches latest news articles based on categories and selected source IDs.
-    static func fetchNews(categories: [String], sourceIds: [String] = []) async throws -> [NewsArticle] {
+    static func fetchNews(categories: [String], sourceIds: [String] = [], country: String = "") async throws -> [NewsArticle] {
         var components = URLComponents(string: "\(baseURL)/latest")!
         var queryItems = [URLQueryItem(name: "apikey", value: apiKey)]
 
@@ -147,11 +162,14 @@ enum NewsService {
             queryItems.append(URLQueryItem(name: "category", value: limitedCategories.joined(separator: ",")))
         }
         if !sourceIds.isEmpty {
-            // Free tier allows up to 5 domains per query
+            // sourceIds now contain domain URLs (e.g. "bbc.com") for use with domainurl parameter
             let limitedSources = Array(sourceIds.prefix(5))
-            queryItems.append(URLQueryItem(name: "domain", value: limitedSources.joined(separator: ",")))
+            queryItems.append(URLQueryItem(name: "domainurl", value: limitedSources.joined(separator: ",")))
         }
         queryItems.append(URLQueryItem(name: "language", value: "en"))
+        if !country.isEmpty {
+            queryItems.append(URLQueryItem(name: "country", value: country))
+        }
         // Only use prioritydomain when no specific sources are selected
         if sourceIds.isEmpty {
             queryItems.append(URLQueryItem(name: "prioritydomain", value: "top"))

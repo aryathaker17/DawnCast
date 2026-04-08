@@ -8,6 +8,7 @@ import SwiftUI
 struct SummaryView: View {
     let categories: [String]
     let sources: [String]
+    var country: String = ""
     @Binding var selectedTab: AppTab
 
     @State private var summaries: [CategorySummary] = []
@@ -128,7 +129,7 @@ struct SummaryView: View {
         errorMessage = nil
 
         do {
-            let articles = try await NewsService.fetchNews(categories: categories, sourceIds: sources)
+            let articles = try await NewsService.fetchNews(categories: categories, sourceIds: sources, country: country)
 
             guard !articles.isEmpty else {
                 errorMessage = "No articles found for your topics."

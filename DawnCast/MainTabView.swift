@@ -15,6 +15,7 @@ struct MainTabView: View {
     @Binding var isAuthenticated: Bool
     @State var categories: [String]
     @State var sources: [String]
+    @State var country: String
     let loggedInEmail: String
 
     @State private var selectedTab: AppTab = .feed
@@ -26,6 +27,7 @@ struct MainTabView: View {
                     SummaryView(
                         categories: categories,
                         sources: sources,
+                        country: country,
                         selectedTab: $selectedTab
                     )
                 }
@@ -36,9 +38,10 @@ struct MainTabView: View {
                     NewsFeedView(
                         isAuthenticated: $isAuthenticated,
                         categories: categories,
-                        sources: sources
+                        sources: sources,
+                        country: country
                     )
-                    .id(categories.hashValue ^ sources.hashValue)
+                    .id(categories.hashValue ^ sources.hashValue ^ country.hashValue)
                 }
             }
 
@@ -48,7 +51,8 @@ struct MainTabView: View {
                         isAuthenticated: $isAuthenticated,
                         loggedInEmail: loggedInEmail,
                         categories: $categories,
-                        sources: $sources
+                        sources: $sources,
+                        country: $country
                     )
                 }
             }

@@ -11,6 +11,7 @@ struct NewsFeedView: View {
     @Binding var isAuthenticated: Bool
     let categories: [String]
     let sources: [String]
+    var country: String = ""
 
     @State private var articles: [NewsArticle] = []
     @State private var isLoading = true
@@ -71,7 +72,7 @@ struct NewsFeedView: View {
         errorMessage = nil
         print("[NewsFeedView] Loading news with categories: \(categories), sources: \(sources)")
         do {
-            articles = try await NewsService.fetchNews(categories: categories, sourceIds: sources)
+            articles = try await NewsService.fetchNews(categories: categories, sourceIds: sources, country: country)
             if articles.isEmpty {
                 errorMessage = "No articles found. Try adjusting your topics."
             }

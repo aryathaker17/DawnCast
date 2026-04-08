@@ -11,6 +11,7 @@ import SwiftData
 struct SourceSelectionView: View {
     let selectedTopics: Set<String>
     @Binding var selectedSources: Set<String>
+    var selectedCountry: String = ""
     @State private var sources: [NewsSource] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -18,6 +19,10 @@ struct SourceSelectionView: View {
     @State private var showLimitMessage = false
 
     private let maxSources = 4
+
+    private func domainName(for source: NewsSource) -> String {
+        source.domainName
+    }
 
     var body: some View {
         ZStack {
@@ -79,20 +84,20 @@ struct SourceSelectionView: View {
                         // Source chips in a flowing layout
                         FlowLayout(spacing: 12) {
                             ForEach(sources) { source in
-                                let sourceId = source.id ?? ""
-                                let displayName = source.name ?? sourceId
-                                if !sourceId.isEmpty {
+                                let domain = domainName(for: source)
+                                let displayName = source.name ?? domain
+                                if !domain.isEmpty {
                                     SourceChip(
                                         title: displayName,
-                                        isSelected: selectedSources.contains(sourceId)
+                                        isSelected: selectedSources.contains(domain)
                                     ) {
-                                        if selectedSources.contains(sourceId) {
-                                            selectedSources.remove(sourceId)
+                                        if selectedSources.contains(domain) {
+                                            selectedSources.remove(domain)
                                             showLimitMessage = false
                                         } else if selectedSources.count >= maxSources {
                                             showLimitMessage = true
                                         } else {
-                                            selectedSources.insert(sourceId)
+                                            selectedSources.insert(domain)
                                         }
                                     }
                                 }
@@ -121,7 +126,7 @@ struct SourceSelectionView: View {
         isLoading = true
         errorMessage = nil
         do {
-            sources = try await NewsService.fetchSources(categories: Array(selectedTopics))
+            sources = try await NewsService.fetchSources(categories: Array(selectedTopics), country: selectedCountry)
             if sources.isEmpty {
                 errorMessage = "No sources found for your topics."
             }
@@ -175,24 +180,24 @@ struct SourceSearchSheet: View {
 
                     List {
                         ForEach(filteredSources) { source in
-                        let sourceId = source.id ?? ""
-                        let displayName = source.name ?? sourceId
-                        if !sourceId.isEmpty {
+                        let domain = source.domainName
+                        let displayName = source.name ?? domain
+                        if !domain.isEmpty {
                             Button {
-                                if selectedSources.contains(sourceId) {
-                                    selectedSources.remove(sourceId)
+                                if selectedSources.contains(domain) {
+                                    selectedSources.remove(domain)
                                     showLimitMessage = false
                                 } else if selectedSources.count >= maxSources {
                                     showLimitMessage = true
                                 } else {
-                                    selectedSources.insert(sourceId)
+                                    selectedSources.insert(domain)
                                 }
                             } label: {
                                 HStack {
                                     Text(displayName)
                                         .foregroundStyle(.white)
                                     Spacer()
-                                    if selectedSources.contains(sourceId) {
+                                    if selectedSources.contains(domain) {
                                         Image(systemName: "checkmark.circle.fill")
                                             .foregroundStyle(.orange)
                                     }
